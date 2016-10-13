@@ -1,13 +1,14 @@
 package config
 
 import (
-	"io/ioutil"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
 )
 
 type Config struct {
-	Port int `json:"port"`
+	Port          int    `json:"port"`
+	Address       string `json:"address"`
 	ConsulAddress string `json:"consul_address"`
 }
 
@@ -24,7 +25,6 @@ func (this *Config) LoadFile(configPath string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%#v",this)
+	fmt.Printf("%#v", this)
 	return nil
 }
-

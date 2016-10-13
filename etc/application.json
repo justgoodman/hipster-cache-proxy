@@ -1,1 +1,1 @@
-{"port": 4000, "consul_address": "http://consul3:8500"}
+{"port": 4000, "address": "hipster_cache3", "consul_address": "bob.net:8500"}
