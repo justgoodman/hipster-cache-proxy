@@ -12,8 +12,6 @@ import (
 	"hipster-cache-proxy/config"
 )
 
-var addr = flag.String("listen-address", ":4001", "The address to listen on for HTTP requests.")
-
 func main() {
 	flag.Parse()
 	config := config.NewConfig()

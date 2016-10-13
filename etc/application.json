@@ -1,1 +1,1 @@
-{"port": 4000, "address": "hipster_cache3", "consul_address": "bob.net:8500"}
+{"metrics_port": 4002,"tcp_port": 4001, "address": "hipster-cache-proxy2", "consul_address": "consul5:8500"}

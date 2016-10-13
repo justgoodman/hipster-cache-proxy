@@ -7,7 +7,8 @@ import (
 )
 
 type Config struct {
-	Port          int    `json:"port"`
+	MetricsPort      int    `json:"metrics_port"`
+	TcpPort	      int    `json:"tcp_port"`
 	Address       string `json:"address"`
 	ConsulAddress string `json:"consul_address"`
 }
