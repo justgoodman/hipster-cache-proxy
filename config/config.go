@@ -8,7 +8,8 @@ import (
 
 type Config struct {
 	MetricsPort      int    `json:"metrics_port"`
-	TcpPort	      int    `json:"tcp_port"`
+	ServerPort	 int    `json:"server_port"`
+	ClientPort	 int    `json:"client_port"`
 	Address       string `json:"address"`
 	ConsulAddress string `json:"consul_address"`
 }

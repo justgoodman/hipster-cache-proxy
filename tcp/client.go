@@ -3,49 +3,30 @@ package tcp
 import (
 	"net"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 
 	"hipster-cache-proxy/common"
 )
 
-type ClientProxy struct {
+type ProxyClient struct {
 	serverAddress string
 	serverPort    int
-	localPort int
+	clientPort int
 	logger common.ILogger
 	conn *net.TCPConn
 }
 
-func NewClientProxy(localPort int, serverAddress string, serverPort int, logger common.ILogger) *ClientProxy {
-	return &ClientProxy{localPort: localPort, serverAddress: serverAddress, serverPort: serverPort, logger: logger,}
+func NewProxyClient(clientPort int, serverAddress string, serverPort int, logger common.ILogger) *ProxyClient {
+	return &ProxyClient{clientPort: clientPort, serverAddress: serverAddress, serverPort: serverPort, logger: logger,}
 }
-/*
-func (this *ClientProxy) getIPbyHost(host string) net.IP, error {
-	fmt.Printf("Init Connection")
-        ips,err := net.LookupIP(this.serverAddress)
-        fmt.Printf("\n Finish \n")
-        if err != nil {
-		retun nil, err
-        }
-        if len(ips) != 1 {
-		return nil, fmt.Errorf(`Count IPs in not equal to 1, currect count is "%d"`, len(ips))
-	)
-	return ips[0]
-*/
-func (this *ClientProxy) InitConnection() error {
-/*
-        ip,err := this.getIPbyHost(this.serverAddress)
-        if err != nil {
-                this.logger.Errorf(`Error get IP:"%s"`, err)
-                return
-        }
-*/
+
+func (this *ProxyClient) InitConnection() error {
 	serverTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", this.serverAddress, this.serverPort))
 	if err != nil {
 		return err
 	}
 
-	localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", this.localPort))
+	localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", this.clientPort))
 
 
 	this.conn, err = net.DialTCP("tcp", localTCPAddr, serverTCPAddr)
@@ -55,18 +36,27 @@ func (this *ClientProxy) InitConnection() error {
 	return nil
 }
 
-func (this *ClientProxy) SendMessage(message string) (string,error) {
+func (this *ProxyClient) SendMessage(message string) ([]byte,error) {
+	var buf [512]byte
 	_, err := this.conn.Write([]byte(message))
 	if err != nil {
 		this.logger.Errorf(`Error send message "%s", error "%s"`, message, err.Error())
-		return "",err
+		return nil,err
 	}
-	response, err := ioutil.ReadAll(this.conn)
+
+	n, err := this.conn.Read(buf[0:])
+        if err != nil {
+                this.logger.Errorf(`Read message error: "%s"`, err.Error())
+        }
+
+        fmt.Println(string(buf[0:n]))
+//	response, err := ioutil.ReadAll(this.conn)
 	if err != nil {
 		this.logger.Errorf(`Error response for message "%s", error "%s"`, message, err.Error())
-		return "", err
+		return nil, err
 	}
-	fmt.Printf(string(response))
-	return string(response), nil
+//	fmt.Printf(string(response))
+	fmt.Printf(string(buf[0:n]))
+	return buf[0:n], nil
 }
 
