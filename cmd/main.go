@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
+	//	"fmt"
 	"os"
 	//	"net/http"
 
@@ -23,9 +23,9 @@ func main() {
 		logger.Criticalf("Error reading configuration file: '%s'", err.Error())
 		os.Exit(1)
 	}
-	logger.Errorf("Test Error")
+	//	logger.Errorf("Test Error")
 	application := app.NewApplication(config, logger)
-	fmt.Printf("#%v", application)
+	//	fmt.Printf("#%v", application)
 	err = application.Init()
 	if err != nil {
 		logger.Criticalf("error initialization application: '%s'", err.Error())
