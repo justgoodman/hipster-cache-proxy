@@ -13,12 +13,16 @@ import (
 )
 
 func main() {
-	flag.Parse()
-	config := config.NewConfig()
 
 	logger := loggo.GetLogger("")
 
-	err := config.LoadFile("etc/application.json")
+	var configFile string
+
+	flag.StringVar(&configFile, "config", "etc/application.json", "Config file")
+	flag.Parse()
+
+	config := config.NewConfig()
+	err := config.LoadFile(configFile)
 	if err != nil {
 		logger.Criticalf("Error reading configuration file: '%s'", err.Error())
 		os.Exit(1)
