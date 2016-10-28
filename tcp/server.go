@@ -6,6 +6,7 @@ import (
 	"sync"
 	"math/rand"
 	"math"
+	"strings"
 
 	consulapi "github.com/hashicorp/consul/api"
 
@@ -18,6 +19,11 @@ type CacheServer struct {
 	port        int
 	proxyClient *ProxyClient
 	virtualNodes []int
+}
+
+type ClientMessage struct {
+	command string
+	params  []string
 }
 
 func (s *CacheServer) addVirtualNode(nodeIndex int) {
@@ -260,27 +266,92 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 			s.logger.Errorf(`Read message error: "%s"`, err.Error())
 		}
 		fmt.Println(string(buf[0:n]))
-		cacheServer,_ := s.getCacheServer("")
-		fmt.Printf(`\n Cache Server: "%#v"`, cacheServer)
-		if cacheServer != nil {
-			if cacheServer.proxyClient == nil {
-				cacheServer.proxyClient = NewProxyClient(s.clientPort, cacheServer.address, cacheServer.port, s.logger)
-				// TODO: Repeat if connection false
-				err := cacheServer.proxyClient.InitConnection()
-				if err != nil {
-					s.logger.Errorf(`Error init connection with the CacheServer "%s"r`, err.Error())
-				}
-			}
-			response, err := cacheServer.proxyClient.SendMessage(string(buf[0:n]))
-			if err != nil {
-				s.logger.Errorf(`Error message: "%s"`, err.Error())
-			}
-			fmt.Printf(`Response: "%s"`, string(response))
-			conn.Write([]byte(response))
+		command := string(buf[0:n])
+		fmt.Printf(`Response "%s"`, command)
+		response, err := s.getResponse(command)
+		if err != nil {
+			response = err.Error()
 		}
-		//	time.Sleep(time.Second * 10)
-		//		conn.Close()
-		//		return
+		if err != nil {
+			s.logger.Errorf(`Error message: "%s"`, err.Error())
+		}
+		fmt.Printf(`Response: "%s"`, string(response))
+		conn.Write([]byte(response))
 	}
 	return
+}
+
+func (s *ProxyServer) getResponse(command string) (string, error) {
+	clientMessage := NewClientMessage()
+	if err := clientMessage.Init(command); err != nil {
+		return "", err
+	}
+	if len(clientMessage.params) == 0 {
+			return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
+	}
+	key := clientMessage.params[0]
+	cacheServer,_ := s.getCacheServer(key)
+	if cacheServer.proxyClient == nil {
+		cacheServer.proxyClient = NewProxyClient(s.clientPort, cacheServer.address, cacheServer.port, s.logger)
+		// TODO: Repeat if connection false
+		err := cacheServer.proxyClient.InitConnection()
+		if err != nil {
+			s.logger.Errorf(`Error init connection with the CacheServer "%s"r`, err.Error())
+		}
+	}
+	return cacheServer.proxyClient.SendMessage(command)
+	}
+
+func NewClientMessage() *ClientMessage {
+	return &ClientMessage{}
+}
+
+func (m *ClientMessage) Init(value string) error {
+	words := m.splitMessageBySpaceAndQuates(value)
+	fmt.Printf(`\n Words :"%#v"`, words)
+	if len(words) == 0 {
+		return fmt.Errorf(`Error: you don't set the command`)
+	}
+	if len(words) < 2 {
+		return fmt.Errorf(`You don't set any parameters`)
+	}
+	m.command = strings.ToUpper(words[0])
+	m.params = words[1:]
+	return nil
+}
+
+func (m *ClientMessage) splitMessageBySpaceAndQuates(message string) []string {
+	words := []string{}
+	var word string
+	var character string
+	delimeter := ""
+	for _, characterCode := range message {
+		character = string(characterCode)
+		switch character {
+		case ` `:
+			if delimeter == "" {
+				words = append(words, word)
+				word = ""
+				break
+			}
+			word += character
+		case `"`:
+			if delimeter == character {
+				delimeter = ""
+				break
+			}
+			if delimeter == "" {
+				delimeter = character
+				break
+			}
+		case "\n", "\r":
+		default:
+			word += character
+
+		}
+	}
+	if word != "" {
+		words = append(words, word)
+	}
+	return words
 }

@@ -35,14 +35,14 @@ func (c *ProxyClient) InitConnection() error {
 	return nil
 }
 
-func (c *ProxyClient) SendMessage(message string) ([]byte, error) {
+func (c *ProxyClient) SendMessage(message string) (string, error) {
 	var buf [512]byte
 	_, err := c.conn.Write([]byte(message))
 	if err != nil {
 		c.logger.Errorf(`Error send message "%s", error "%s"`, message, err.Error())
 		c.conn.Close()
 		c.InitConnection()
-		return nil, err
+		return "", err
 	}
 
 	n, err := c.conn.Read(buf[0:])
@@ -56,9 +56,9 @@ func (c *ProxyClient) SendMessage(message string) ([]byte, error) {
 	//	response, err := ioutil.ReadAll(c.conn)
 	if err != nil {
 		c.logger.Errorf(`Error response for message "%s", error "%s"`, message, err.Error())
-		return nil, err
+		return "", err
 	}
 	//	fmt.Printf(string(response))
 	fmt.Printf(string(buf[0:n]))
-	return buf[0:n], nil
+	return string(buf[0:n]), nil
 }
