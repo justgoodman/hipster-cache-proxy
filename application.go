@@ -56,7 +56,7 @@ func (a *Application) cacheServerChangedRegistration(w http.ResponseWriter, r *h
 		return
 	}
 
-	a.proxyServer.CacheServerChangedRegistration(services)
+	a.proxyServer.ServersSharding.CacheServerChangedRegistration(services)
 	io.WriteString(w, "Ok")
 }
 
