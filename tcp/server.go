@@ -7,6 +7,10 @@ import (
 	"hipster-cache-proxy/common"
 )
 
+const (
+	getShardCommand = "GET_SHARD"
+)
+
 type ProxyServer struct {
 	serverPort        int
 	clientPort        int
@@ -80,6 +84,12 @@ func (s *ProxyServer) getResponse(command string) (string, error) {
 	}
 	key  := clientMessage.params[0]
 	cacheServer,_ := s.ServersSharding.GetCacheServer(key)
+
+	// Command get shard node
+	if clientMessage.command == getShardCommand {
+		return cacheServer.address,nil
+	}
+
 	if cacheServer.proxyClient == nil {
 		cacheServer.proxyClient = NewProxyClient(s.clientPort, cacheServer.address, cacheServer.port, s.logger)
 		// TODO: Repeat if connection false

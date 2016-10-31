@@ -90,6 +90,20 @@ func (a *Application) registerService(catalog *consulapi.Catalog, id string, ser
 	return err
 }
 
+func (a *Application) registerHealthCheck(agent *consulapi.Agent, address string, port int) error {
+	return nil
+/*
+	reg := &consulapi.AgentCheckRegistration{
+		ID: fmt.Sprintf("HealthCheckProxy_%s", address),
+		Name: fmt.Sprintf("Health Check TCP for node: %s", address),
+	}
+	reg.TCP = fmt.Sprintf("%s:%d", address, port)
+	reg.Interval = "30s"
+	return agent.CheckRegister(reg)
+*/
+}
+
+
 func (a *Application) initDiscovery() error {
 	var err error
 	config := consulapi.DefaultConfig()
@@ -102,6 +116,14 @@ func (a *Application) initDiscovery() error {
 
 	// Register for Applications
 	err = a.registerService(catalog, "proxy1", "hipster-cache-proxy", a.config.ServerPort)
+	if err != nil {
+		return err
+	}
+
+	agent := a.consul.Agent()
+	// Register heath check
+	err = a.registerHealthCheck(agent, a.config.Address, a.config.ServerPort)
+
 	if err != nil {
 		return err
 	}
