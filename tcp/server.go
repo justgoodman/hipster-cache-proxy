@@ -2,30 +2,30 @@ package tcp
 
 import (
 	"fmt"
-	"net"
 	"io"
+	"net"
 
 	"hipster-cache-proxy/common"
 )
 
 const (
 	getShardCommand = "GET_SHARD"
-	exitCommand	= "EXIT"
-	endSymbol	= "\n"
+	exitCommand     = "EXIT"
+	endSymbol       = "\n"
 )
 
 type ProxyServer struct {
-	serverPort        int
-	listener          *net.TCPListener
-	logger common.ILogger
+	serverPort      int
+	listener        *net.TCPListener
+	logger          common.ILogger
 	ServersSharding *ServersSharding
 }
 
-func NewProxyServer(serverPort,countVirtNodes,maxKeyLenght int, logger common.ILogger) *ProxyServer {
+func NewProxyServer(serverPort, countVirtNodes, maxKeyLenght int, logger common.ILogger) *ProxyServer {
 	return &ProxyServer{
-	serverPort: serverPort,
-	logger: logger,
-	ServersSharding: NewServersSharding(countVirtNodes,maxKeyLenght,logger),
+		serverPort:      serverPort,
+		logger:          logger,
+		ServersSharding: NewServersSharding(countVirtNodes, maxKeyLenght, logger),
 	}
 }
 
@@ -54,25 +54,25 @@ func (s *ProxyServer) Run() {
 
 func (s *ProxyServer) handleMessage(conn net.Conn) {
 	var (
-		buf [512]byte
+		buf           [512]byte
 		clientMessage *ClientMessage
 	)
 	for {
 		n, err := conn.Read(buf[0:])
 		if err != nil {
 			s.logger.Errorf(`Read message error: "%s"`, err.Error())
-			// Connection closed by client		
+			// Connection closed by client
 			if err == io.EOF {
 				if err = conn.Close(); err != nil {
 					s.logger.Errorf(`Close connection error: "%s"`, err.Error())
 				}
 				return
-                        }
+			}
 		}
 		command := string(buf[0:n])
 		fmt.Printf(`Response "%s"`, command)
 
-		clientMessage,err = s.getClientMessage(command)
+		clientMessage, err = s.getClientMessage(command)
 		if err != nil {
 			conn.Write([]byte(err.Error() + endSymbol))
 			return
@@ -104,14 +104,14 @@ func (s *ProxyServer) getClientMessage(command string) (*ClientMessage, error) {
 
 func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) (string, error) {
 	if len(clientMessage.params) == 0 {
-			return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
+		return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
 	}
-	key  := clientMessage.params[0]
-	cacheServer,_ := s.ServersSharding.GetCacheServer(key)
+	key := clientMessage.params[0]
+	cacheServer, _ := s.ServersSharding.GetCacheServer(key)
 
 	// Command get shard node
 	if clientMessage.command == getShardCommand {
-		return fmt.Sprintf(`"%s:%d"`,cacheServer.address, cacheServer.port) + endSymbol, nil
+		return fmt.Sprintf(`"%s:%d"`, cacheServer.address, cacheServer.port) + endSymbol, nil
 	}
 
 	if cacheServer.proxyClient == nil {
@@ -124,5 +124,3 @@ func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) 
 	}
 	return cacheServer.proxyClient.SendMessage(command)
 }
-
-

@@ -49,7 +49,7 @@ func (a *Application) updateVirtualNodes() {
 	fmt.Printf("Enter")
 	catalog := a.consul.Catalog()
 	services, meta, err := catalog.Service("hipster-cache", "", nil)
-//	fmt.Printf("\n \n Consul Services %#v", services)
+	//	fmt.Printf("\n \n Consul Services %#v", services)
 	if err != nil {
 		a.logger.Errorf(`Error getting services from consul: "%s"`, err.Error())
 		return
@@ -66,7 +66,6 @@ func (a *Application) updateVirtualNodes() {
 
 	a.proxyServer.ServersSharding.CacheServerChangedRegistration(services)
 }
-
 
 func (a *Application) initRouting() {
 	// Handler for Prometheus
@@ -100,17 +99,16 @@ func (a *Application) registerService(catalog *consulapi.Catalog, id string, ser
 
 func (a *Application) registerHealthCheck(agent *consulapi.Agent, address string, port int) error {
 	return nil
-/*
-	reg := &consulapi.AgentCheckRegistration{
-		ID: fmt.Sprintf("HealthCheckProxy_%s", address),
-		Name: fmt.Sprintf("Health Check TCP for node: %s", address),
-	}
-	reg.TCP = fmt.Sprintf("%s:%d", address, port)
-	reg.Interval = "30s"
-	return agent.CheckRegister(reg)
-*/
+	/*
+		reg := &consulapi.AgentCheckRegistration{
+			ID: fmt.Sprintf("HealthCheckProxy_%s", address),
+			Name: fmt.Sprintf("Health Check TCP for node: %s", address),
+		}
+		reg.TCP = fmt.Sprintf("%s:%d", address, port)
+		reg.Interval = "30s"
+		return agent.CheckRegister(reg)
+	*/
 }
-
 
 func (a *Application) initDiscovery() error {
 	var err error

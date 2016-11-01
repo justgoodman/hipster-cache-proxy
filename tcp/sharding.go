@@ -1,33 +1,33 @@
 package tcp
 
 import (
-	"sync"
 	"fmt"
-	"math/rand"
 	"math"
+	"math/rand"
+	"sync"
 
-	"hipster-cache-proxy/common"
 	consulapi "github.com/hashicorp/consul/api"
+	"hipster-cache-proxy/common"
 )
 
 type ServersSharding struct {
-	logger            common.ILogger
-	cacheServersMap   map[string]*CacheServer
-	cacheServers      []*CacheServer
-	mutexCacheServers sync.RWMutex
-	virtualNodes         []*CacheServer
-	lastIndexServerAddNodes int
+	logger                   common.ILogger
+	cacheServersMap          map[string]*CacheServer
+	cacheServers             []*CacheServer
+	mutexCacheServers        sync.RWMutex
+	virtualNodes             []*CacheServer
+	lastIndexServerAddNodes  int
 	lastIndexServerFreeNodes int
-	hashFunction *common.ComplexStringHash
+	hashFunction             *common.ComplexStringHash
 }
 
 func NewServersSharding(countVirtNodes, maxKeyLenght int, logger common.ILogger) *ServersSharding {
-	coefP := uint64(int64(countVirtNodes)*int64(maxKeyLenght) + (rand.Int63n(math.MaxInt64-int64(countVirtNodes*maxKeyLenght))))
+	coefP := uint64(int64(countVirtNodes)*int64(maxKeyLenght) + (rand.Int63n(math.MaxInt64 - int64(countVirtNodes*maxKeyLenght))))
 	return &ServersSharding{
-	logger: logger,
-	cacheServersMap: make(map[string]*CacheServer),
-	virtualNodes: make([]*CacheServer, countVirtNodes, countVirtNodes),
-	hashFunction: common.NewComplexStringHash(uint64(countVirtNodes), coefP, coefP),}
+		logger:          logger,
+		cacheServersMap: make(map[string]*CacheServer),
+		virtualNodes:    make([]*CacheServer, countVirtNodes, countVirtNodes),
+		hashFunction:    common.NewComplexStringHash(uint64(countVirtNodes), coefP, coefP)}
 }
 
 func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.CatalogService) {
@@ -37,13 +37,12 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		service     *consulapi.CatalogService
 	)
 
-
 	servicesMap := make(map[string]*consulapi.CatalogService)
 
 	registeredCacheServers := make([]*CacheServer, 0, 1)
 
 	for _, service = range services {
-		// Exclude health check 
+		// Exclude health check
 		if service.ServicePort == 0 {
 			continue
 		}
@@ -53,18 +52,17 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 
 		if !ok {
 			cacheServer = NewCacheServer(service.ServiceID, service.Address, service.ServicePort)
-/*
-			s.mutexCacheServers.Lock()
-			s.cacheServers[service.ServiceID] = cacheServer
-			s.mutexCacheServers.Unlock()
-*/
+			/*
+				s.mutexCacheServers.Lock()
+				s.cacheServers[service.ServiceID] = cacheServer
+				s.mutexCacheServers.Unlock()
+			*/
 			registeredCacheServers = append(registeredCacheServers, cacheServer)
 
 			fmt.Printf(`\n Services : "%#v"`, service)
 		}
 		servicesMap[service.ServiceID] = service
 	}
-
 
 	s.reCachingOnRegister(registeredCacheServers)
 
@@ -112,7 +110,6 @@ func (s *ServersSharding) reCachingOnUnregister(freeCacheServers []*CacheServer)
 		fmt.Printf("\n Unregister node:'%#v` \n", freeCacheServer)
 	}
 }
-
 
 func (s *ServersSharding) initVirtualNodesDistribution(newCacheServers []*CacheServer) {
 	freeVirtualNodes := []int{}
@@ -162,7 +159,7 @@ func (s *ServersSharding) reCachingOnRegister(newCacheServers []*CacheServer) {
 		return
 	}
 	// needed coount nodes for reCaching
-	countNodesPerServer := len(s.virtualNodes)/(lenServers + lenNewServers)
+	countNodesPerServer := len(s.virtualNodes) / (lenServers + lenNewServers)
 	neededCountRecachingNodes := lenNewServers * countNodesPerServer
 	countRecachingNodes := 0
 	var cacheServer *CacheServer
@@ -193,7 +190,7 @@ func (s *ServersSharding) reCachingOnRegister(newCacheServers []*CacheServer) {
 		fmt.Printf("\n Add Cache Server:'%#v' \n", cacheServer)
 		s.cacheServersMap[cacheServer.id] = cacheServer
 	}
-	s.cacheServers = append(s.cacheServers,newCacheServers...)
+	s.cacheServers = append(s.cacheServers, newCacheServers...)
 }
 
 func (s *ServersSharding) GetCacheServer(key string) (*CacheServer, error) {

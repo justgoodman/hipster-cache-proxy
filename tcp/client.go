@@ -20,13 +20,13 @@ func NewProxyClient(serverAddress string, serverPort int, logger common.ILogger)
 }
 
 func (c *ProxyClient) InitConnection() error {
-/*
-	serverTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
-	if err != nil {
-		return err
-	}
-	localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", c.clientPort))
-*/
+	/*
+		serverTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
+		if err != nil {
+			return err
+		}
+		localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", c.clientPort))
+	*/
 	var err error
 	c.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 )
 
 type Config struct {
-	MetricsPort   int    `json:"metrics_port"`
-	ServerPort    int    `json:"server_port"`
-	ClientPort    int    `json:"client_port"`
-	Address       string `json:"address"`
-	ConsulAddress string `json:"consul_address"`
-	CountVirtNodes int `json:"count_virt_nodes"`
-	MaxKeyLenght int `json:"max_key_lenght"`
+	MetricsPort    int    `json:"metrics_port"`
+	ServerPort     int    `json:"server_port"`
+	ClientPort     int    `json:"client_port"`
+	Address        string `json:"address"`
+	ConsulAddress  string `json:"consul_address"`
+	CountVirtNodes int    `json:"count_virt_nodes"`
+	MaxKeyLenght   int    `json:"max_key_lenght"`
 }
 
 func NewConfig() *Config {
