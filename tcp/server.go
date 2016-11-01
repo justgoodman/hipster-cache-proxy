@@ -11,6 +11,7 @@ import (
 const (
 	getShardCommand = "GET_SHARD"
 	exitCommand	= "EXIT"
+	endSymbol	= "\n"
 )
 
 type ProxyServer struct {
@@ -75,7 +76,7 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 
 		clientMessage,err = s.getClientMessage(command)
 		if err != nil {
-			conn.Write([]byte(err.Error() + "\n"))
+			conn.Write([]byte(err.Error() + endSymbol))
 			return
 		}
 		if clientMessage.command == exitCommand {
@@ -84,13 +85,13 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 
 		response, err := s.getResponse(command, clientMessage)
 		if err != nil {
-			response = err.Error()
+			response = err.Error() + endSymbol
 		}
 		if err != nil {
 			s.logger.Errorf(`Error message: "%s"`, err.Error())
 		}
 		fmt.Printf(`Response: "%s"`, string(response))
-		conn.Write([]byte(response + "\n"))
+		conn.Write([]byte(response))
 	}
 	return
 }
@@ -112,7 +113,7 @@ func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) 
 
 	// Command get shard node
 	if clientMessage.command == getShardCommand {
-		return fmt.Sprintf(`"%s:%d"`,cacheServer.address, cacheServer.port), nil
+		return fmt.Sprintf(`"%s:%d"`,cacheServer.address, cacheServer.port) + endSymbol, nil
 	}
 
 	if cacheServer.proxyClient == nil {
