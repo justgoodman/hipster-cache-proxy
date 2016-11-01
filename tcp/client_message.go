@@ -20,9 +20,6 @@ func (m *ClientMessage) Init(value string) error {
 	if len(words) == 0 {
 		return fmt.Errorf(`Error: you don't set the command`)
 	}
-	if len(words) < 2 {
-		return fmt.Errorf(`You don't set any parameters`)
-	}
 	m.command = strings.ToUpper(words[0])
 	m.params = words[1:]
 	return nil

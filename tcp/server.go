@@ -10,6 +10,7 @@ import (
 
 const (
 	getShardCommand = "GET_SHARD"
+	exitCommand	= "EXIT"
 )
 
 type ProxyServer struct {
@@ -53,7 +54,10 @@ func (s *ProxyServer) Run() {
 }
 
 func (s *ProxyServer) handleMessage(conn net.Conn) {
-	var buf [512]byte
+	var (
+		buf [512]byte
+		clientMessage *ClientMessage
+	)
 	for {
 		n, err := conn.Read(buf[0:])
 		if err != nil {
@@ -66,10 +70,19 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 				return
                         }
 		}
-		fmt.Println(string(buf[0:n]))
 		command := string(buf[0:n])
 		fmt.Printf(`Response "%s"`, command)
-		response, err := s.getResponse(command)
+
+		clientMessage,err = s.getClientMessage(command)
+		if err != nil {
+			conn.Write([]byte(err.Error() + "\n"))
+			return
+		}
+		if clientMessage.command == exitCommand {
+			conn.Close()
+		}
+
+		response, err := s.getResponse(command, clientMessage)
 		if err != nil {
 			response = err.Error()
 		}
@@ -82,11 +95,15 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 	return
 }
 
-func (s *ProxyServer) getResponse(command string) (string, error) {
+func (s *ProxyServer) getClientMessage(command string) (*ClientMessage, error) {
 	clientMessage := NewClientMessage()
 	if err := clientMessage.Init(command); err != nil {
-		return "", err
+		return nil, err
 	}
+	return clientMessage, nil
+}
+
+func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) (string, error) {
 	if len(clientMessage.params) == 0 {
 			return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
 	}
