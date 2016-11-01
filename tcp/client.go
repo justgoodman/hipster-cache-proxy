@@ -11,24 +11,24 @@ import (
 type ProxyClient struct {
 	serverAddress string
 	serverPort    int
-	clientPort    int
 	logger        common.ILogger
-	conn          *net.TCPConn
+	conn          net.Conn
 }
 
-func NewProxyClient(clientPort int, serverAddress string, serverPort int, logger common.ILogger) *ProxyClient {
-	return &ProxyClient{clientPort: clientPort, serverAddress: serverAddress, serverPort: serverPort, logger: logger}
+func NewProxyClient(serverAddress string, serverPort int, logger common.ILogger) *ProxyClient {
+	return &ProxyClient{serverAddress: serverAddress, serverPort: serverPort, logger: logger}
 }
 
 func (c *ProxyClient) InitConnection() error {
+/*
 	serverTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
 	if err != nil {
 		return err
 	}
-
 	localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", c.clientPort))
-
-	c.conn, err = net.DialTCP("tcp", localTCPAddr, serverTCPAddr)
+*/
+	var err error
+	c.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
 	if err != nil {
 		return err
 	}

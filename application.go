@@ -141,6 +141,6 @@ func (a *Application) initDiscovery() error {
 }
 
 func (a *Application) initTCP() error {
-	a.proxyServer = tcp.NewProxyServer(a.config.ServerPort, a.config.ClientPort, a.config.CountVirtNodes, a.config.MaxKeyLenght, a.logger)
+	a.proxyServer = tcp.NewProxyServer(a.config.ServerPort, a.config.CountVirtNodes, a.config.MaxKeyLenght, a.logger)
 	return a.proxyServer.Init()
 }

@@ -16,16 +16,14 @@ const (
 
 type ProxyServer struct {
 	serverPort        int
-	clientPort        int
 	listener          *net.TCPListener
 	logger common.ILogger
 	ServersSharding *ServersSharding
 }
 
-func NewProxyServer(serverPort,clientPort,countVirtNodes,maxKeyLenght int, logger common.ILogger) *ProxyServer {
+func NewProxyServer(serverPort,countVirtNodes,maxKeyLenght int, logger common.ILogger) *ProxyServer {
 	return &ProxyServer{
 	serverPort: serverPort,
-	clientPort: clientPort,
 	logger: logger,
 	ServersSharding: NewServersSharding(countVirtNodes,maxKeyLenght,logger),
 	}
@@ -117,7 +115,7 @@ func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) 
 	}
 
 	if cacheServer.proxyClient == nil {
-		cacheServer.proxyClient = NewProxyClient(s.clientPort, cacheServer.address, cacheServer.port, s.logger)
+		cacheServer.proxyClient = NewProxyClient(cacheServer.address, cacheServer.port, s.logger)
 		// TODO: Repeat if connection false
 		err := cacheServer.proxyClient.InitConnection()
 		if err != nil {
@@ -125,6 +123,6 @@ func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) 
 		}
 	}
 	return cacheServer.proxyClient.SendMessage(command)
-	}
+}
 
 
