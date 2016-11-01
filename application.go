@@ -35,13 +35,21 @@ func (a *Application) Init() error {
 
 	a.initTCP()
 	a.initRouting()
+	// If CacheServers registered in consul we can updateVirtualNodes
+	a.updateVirtualNodes()
 	return nil
 }
 
 func (a *Application) cacheServerChangedRegistration(w http.ResponseWriter, r *http.Request) {
+	a.updateVirtualNodes()
+	io.WriteString(w, "Ok")
+}
+
+func (a *Application) updateVirtualNodes() {
 	fmt.Printf("Enter")
 	catalog := a.consul.Catalog()
 	services, meta, err := catalog.Service("hipster-cache", "", nil)
+//	fmt.Printf("\n \n Consul Services %#v", services)
 	if err != nil {
 		a.logger.Errorf(`Error getting services from consul: "%s"`, err.Error())
 		return
@@ -57,8 +65,8 @@ func (a *Application) cacheServerChangedRegistration(w http.ResponseWriter, r *h
 	}
 
 	a.proxyServer.ServersSharding.CacheServerChangedRegistration(services)
-	io.WriteString(w, "Ok")
 }
+
 
 func (a *Application) initRouting() {
 	// Handler for Prometheus

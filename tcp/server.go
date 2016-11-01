@@ -3,6 +3,7 @@ package tcp
 import (
 	"fmt"
 	"net"
+	"io"
 
 	"hipster-cache-proxy/common"
 )
@@ -57,6 +58,13 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 		n, err := conn.Read(buf[0:])
 		if err != nil {
 			s.logger.Errorf(`Read message error: "%s"`, err.Error())
+			// Connection closed by client		
+			if err == io.EOF {
+				if err = conn.Close(); err != nil {
+					s.logger.Errorf(`Close connection error: "%s"`, err.Error())
+				}
+				return
+                        }
 		}
 		fmt.Println(string(buf[0:n]))
 		command := string(buf[0:n])
@@ -69,7 +77,7 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 			s.logger.Errorf(`Error message: "%s"`, err.Error())
 		}
 		fmt.Printf(`Response: "%s"`, string(response))
-		conn.Write([]byte(response))
+		conn.Write([]byte(response + "\n"))
 	}
 	return
 }
@@ -87,7 +95,7 @@ func (s *ProxyServer) getResponse(command string) (string, error) {
 
 	// Command get shard node
 	if clientMessage.command == getShardCommand {
-		return cacheServer.address,nil
+		return fmt.Sprintf(`"%s:%d"`,cacheServer.address, cacheServer.port), nil
 	}
 
 	if cacheServer.proxyClient == nil {

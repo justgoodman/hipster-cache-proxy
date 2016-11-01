@@ -89,7 +89,7 @@ func (s *StringHash) CalculateHash(value string) uint64 {
 	coef = 1
 	for _, character := range value {
 		result += uint64(character) * coef % s.p
-		fmt.Printf(`"\n" Result: "%d"`, result)
+//		fmt.Printf(`"\n" Result: "%d"`, result)
 		coef *= s.x
 	}
 	return result % s.p
