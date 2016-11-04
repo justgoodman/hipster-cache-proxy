@@ -11,10 +11,11 @@ type CacheServer struct {
 	port         int
 	proxyClient  *ProxyClient
 	virtualNodes []int
+	isAlive	     bool
 }
 
 func (s *CacheServer) healthCheck() bool {
-	response, err := cacheServer.ProxyClient.sendMessage("ping")
+	response, err := s.proxyClient.SendMessage("ping")
 	return err!= nil && response == "pong"
 }
 

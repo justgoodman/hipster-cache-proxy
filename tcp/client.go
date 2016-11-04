@@ -3,7 +3,7 @@ package tcp
 import (
 	"fmt"
 	"net"
-	//"io/ioutil"
+	"sync"
 
 	"hipster-cache-proxy/common"
 )
@@ -19,6 +19,11 @@ type ProxyClient struct {
 func NewProxyClient(serverAddress string, serverPort int, logger common.ILogger) *ProxyClient {
 	return &ProxyClient{serverAddress: serverAddress, serverPort: serverPort, logger: logger}
 }
+
+func (c *ProxyClient) HasConnection() bool {
+	return c.conn != nil
+}
+
 
 func (c *ProxyClient) InitConnection() error {
 	/*
@@ -37,7 +42,7 @@ func (c *ProxyClient) InitConnection() error {
 }
 
 func (c *ProxyClient) SendMessage(message string) (string, error) {
-	c.SendMessageMutex.Lock()
+	c.sendMessageMutex.Lock()
 	defer c.sendMessageMutex.Unlock()
 	var buf [512]byte
 	_, err := c.conn.Write([]byte(message))

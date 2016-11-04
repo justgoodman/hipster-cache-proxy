@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"sync"
+	"time"
 
 	consulapi "github.com/hashicorp/consul/api"
 	"hipster-cache-proxy/common"
@@ -24,24 +25,30 @@ type ServersSharding struct {
 }
 
 func (s *ServersSharding) HealthCheck() {
+	var (
+		err error
+	)
 	for {
-		s.mutexCacheServers.RLock()
+		s.cacheServersMutex.RLock()
 		for _,cacheServer := range s.cacheServers {
-			// try 3 times, sleep 100 ms
-			isAlive := cacheServer.healthCheck()
-			if cacheServer.isAlive {
-				if !isAlive {
-					reCachingOnUnregister([]*CacheServer{cacheServer})
-					cacheServer.isAlive = false
-				}
-			else {
-				if isAlive {
-					reCachingOnRegister([]*CacheServer{cacheServer})
-					cacheServer.isAlive = true
+			if !cacheServer.proxyClient.HasConnection() {
+				err = cacheServer.proxyClient.InitConnection()
+				if err != nil {
+					continue
 				}
 			}
+			// try 3 times, sleep 100 ms
+			isAlive := cacheServer.healthCheck()
+			if cacheServer.isAlive && !isAlive {
+				s.reShardingOnUnregister([]*CacheServer{cacheServer})
+				cacheServer.isAlive = false
+			}
+			if !cacheServer.isAlive && isAlive {
+				s.reShardingOnRegister([]*CacheServer{cacheServer})
+				cacheServer.isAlive = true
+			}
 		}
-		s.mutexCacheServers.RUnlock()
+		s.cacheServersMutex.RUnlock()
 		time.Sleep(100*time.Millisecond)
 	}
 }
@@ -60,7 +67,7 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		cacheServer *CacheServer
 		ok          bool
 		service     *consulapi.CatalogService
-		wabAddress  string
+		wanAddress  string
 	)
 
 	servicesMap := make(map[string]*consulapi.CatalogService)
@@ -72,36 +79,36 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		if service.ServicePort == 0 {
 			continue
 		}
-		s.mutexCacheServersMap.RLock()
+		s.cacheServersMapMutex.RLock()
 		cacheServer, ok = s.cacheServersMap[service.ServiceID]
-		s.mutexCacheServersMap.RUnlock()
+		s.cacheServersMapMutex.RUnlock()
 
 		if !ok {
-			wanAddress := service.Address
+			wanAddress = service.Address
 			if service.TaggedAddresses != nil {
-				WanAddress, ok = service.TaggedAddress["wan"]
+				wanAddress, ok = service.TaggedAddresses["wan"]
 				if !ok {
 					wanAddress = service.Address
 				}
 			}
 
 			cacheServer = NewCacheServer(service.ServiceID, service.Address, wanAddress, service.ServicePort)
+			err := cacheServer.proxyClient.InitConnection()
 			// Check Health
-			cacheServer.proxyClient.initConnection()
-			if cacheServer.healthCheck() {
+			if err == nil && cacheServer.healthCheck() {
 				cacheServer.isAlive = true
 				registeredCacheServers = append(registeredCacheServers, cacheServer)
 			} else {
 				cacheServer.isAlive = false
 			}
 
-			s.mutexCacheServersMap.Lock()
+			s.cacheServersMapMutex.Lock()
 			s.cacheServersMap[cacheServer.id] = cacheServer
-			s.mutexCacheServersMap.Unlock()
+			s.cacheServersMapMutex.Unlock()
 
-			s.mutexCacheServers.Lock()
+			s.cacheServersMutex.Lock()
 			s.cacheServers = append(s.cacheServers, cacheServer)
-			s.mutexCacheServers.Unlock()
+			s.cacheServersMutex.Unlock()
 
 			fmt.Printf(`\n Services : "%#v"`, service)
 		}
@@ -110,13 +117,13 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 
 	s.reShardingOnRegister(registeredCacheServers)
 
-	s.mutexCacheServers.RLock()
+	s.cacheServersMutex.RLock()
 	lenCacheServers := len(s.cacheServersMap)
-	s.mutexCacheServers.RUnlock()
+	s.cacheServersMutex.RUnlock()
 
 	var unregisteredCacheServers []*CacheServer
 	if len(servicesMap) != lenCacheServers {
-		s.mutexCacheServers.Lock()
+		s.cacheServersMutex.Lock()
 		newCacheServers := []*CacheServer{}
 		for _, cacheServer = range s.cacheServersMap {
 			service, ok = servicesMap[cacheServer.id]
@@ -132,7 +139,7 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		}
 		s.cacheServersMutex.Lock()
 		s.cacheServers = newCacheServers
-		s,cacheServerMutex.Unlock()
+		s.cacheServersMutex.Unlock()
 		s.reShardingOnUnregister(unregisteredCacheServers)
 	}
 
@@ -257,7 +264,7 @@ func (s *ServersSharding) GetCacheServer(key string) (*CacheServer, error) {
 	s.reShardingMutex.RLock()
 	//fmt.Printf(`Cache Servers:"%#v"`, s.virtualNodes)
 	cacheServer := s.virtualNodes[hashKey]
-	s.reShardingMytex.RUnlock()
+	s.reShardingMutex.RUnlock()
 	if cacheServer == nil {
 		return nil, fmt.Errorf(`Can't find cache server by index "%s"`, key)
 	}
