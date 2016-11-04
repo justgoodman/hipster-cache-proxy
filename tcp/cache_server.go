@@ -7,9 +7,15 @@ import (
 type CacheServer struct {
 	id           string
 	address      string
+	wanAddress   string
 	port         int
 	proxyClient  *ProxyClient
 	virtualNodes []int
+}
+
+func (s *CacheServer) healthCheck() bool {
+	response, err := cacheServer.ProxyClient.sendMessage("ping")
+	return err!= nil && response == "pong"
 }
 
 func (s *CacheServer) addVirtualNode(nodeIndex int) {
@@ -24,6 +30,6 @@ func (s *CacheServer) getVirtualNode() int {
 	return nodeIndex
 }
 
-func NewCacheServer(id, address string, port int) *CacheServer {
-	return &CacheServer{id: id, address: address, port: port}
+func NewCacheServer(id, address, wanAddress string, port int) *CacheServer {
+	return &CacheServer{id: id, address: address, wanAddress: wanAddress, port: port}
 }

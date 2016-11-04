@@ -13,6 +13,7 @@ type ProxyClient struct {
 	serverPort    int
 	logger        common.ILogger
 	conn          net.Conn
+	sendMessageMutex sync.Mutex
 }
 
 func NewProxyClient(serverAddress string, serverPort int, logger common.ILogger) *ProxyClient {
@@ -36,6 +37,8 @@ func (c *ProxyClient) InitConnection() error {
 }
 
 func (c *ProxyClient) SendMessage(message string) (string, error) {
+	c.SendMessageMutex.Lock()
+	defer c.sendMessageMutex.Unlock()
 	var buf [512]byte
 	_, err := c.conn.Write([]byte(message))
 	if err != nil {

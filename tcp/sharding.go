@@ -14,11 +14,36 @@ type ServersSharding struct {
 	logger                   common.ILogger
 	cacheServersMap          map[string]*CacheServer
 	cacheServers             []*CacheServer
-	mutexCacheServers        sync.RWMutex
+	cacheServersMutex        sync.RWMutex
+	cacheServersMapMutex	 sync.RWMutex
+	reShardingMutex		 sync.RWMutex
 	virtualNodes             []*CacheServer
 	lastIndexServerAddNodes  int
 	lastIndexServerFreeNodes int
 	hashFunction             *common.ComplexStringHash
+}
+
+func (s *ServersSharding) HealthCheck() {
+	for {
+		s.mutexCacheServers.RLock()
+		for _,cacheServer := range s.cacheServers {
+			// try 3 times, sleep 100 ms
+			isAlive := cacheServer.healthCheck()
+			if cacheServer.isAlive {
+				if !isAlive {
+					reCachingOnUnregister([]*CacheServer{cacheServer})
+					cacheServer.isAlive = false
+				}
+			else {
+				if isAlive {
+					reCachingOnRegister([]*CacheServer{cacheServer})
+					cacheServer.isAlive = true
+				}
+			}
+		}
+		s.mutexCacheServers.RUnlock()
+		time.Sleep(100*time.Millisecond)
+	}
 }
 
 func NewServersSharding(countVirtNodes, maxKeyLenght int, logger common.ILogger) *ServersSharding {
@@ -35,6 +60,7 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		cacheServer *CacheServer
 		ok          bool
 		service     *consulapi.CatalogService
+		wabAddress  string
 	)
 
 	servicesMap := make(map[string]*consulapi.CatalogService)
@@ -46,25 +72,43 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 		if service.ServicePort == 0 {
 			continue
 		}
-		s.mutexCacheServers.RLock()
+		s.mutexCacheServersMap.RLock()
 		cacheServer, ok = s.cacheServersMap[service.ServiceID]
-		s.mutexCacheServers.RUnlock()
+		s.mutexCacheServersMap.RUnlock()
 
 		if !ok {
-			cacheServer = NewCacheServer(service.ServiceID, service.Address, service.ServicePort)
-			/*
-				s.mutexCacheServers.Lock()
-				s.cacheServers[service.ServiceID] = cacheServer
-				s.mutexCacheServers.Unlock()
-			*/
-			registeredCacheServers = append(registeredCacheServers, cacheServer)
+			wanAddress := service.Address
+			if service.TaggedAddresses != nil {
+				WanAddress, ok = service.TaggedAddress["wan"]
+				if !ok {
+					wanAddress = service.Address
+				}
+			}
+
+			cacheServer = NewCacheServer(service.ServiceID, service.Address, wanAddress, service.ServicePort)
+			// Check Health
+			cacheServer.proxyClient.initConnection()
+			if cacheServer.healthCheck() {
+				cacheServer.isAlive = true
+				registeredCacheServers = append(registeredCacheServers, cacheServer)
+			} else {
+				cacheServer.isAlive = false
+			}
+
+			s.mutexCacheServersMap.Lock()
+			s.cacheServersMap[cacheServer.id] = cacheServer
+			s.mutexCacheServersMap.Unlock()
+
+			s.mutexCacheServers.Lock()
+			s.cacheServers = append(s.cacheServers, cacheServer)
+			s.mutexCacheServers.Unlock()
 
 			fmt.Printf(`\n Services : "%#v"`, service)
 		}
 		servicesMap[service.ServiceID] = service
 	}
 
-	s.reCachingOnRegister(registeredCacheServers)
+	s.reShardingOnRegister(registeredCacheServers)
 
 	s.mutexCacheServers.RLock()
 	lenCacheServers := len(s.cacheServersMap)
@@ -78,20 +122,26 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 			service, ok = servicesMap[cacheServer.id]
 			if !ok {
 				unregisteredCacheServers = append(unregisteredCacheServers, cacheServer)
+				s.cacheServersMapMutex.Lock()
 				delete(s.cacheServersMap, cacheServer.id)
+				s.cacheServersMapMutex.Unlock()
 			} else {
 				// New array cache services
 				newCacheServers = append(newCacheServers, cacheServer)
 			}
 		}
+		s.cacheServersMutex.Lock()
 		s.cacheServers = newCacheServers
-		s.reCachingOnUnregister(unregisteredCacheServers)
+		s,cacheServerMutex.Unlock()
+		s.reShardingOnUnregister(unregisteredCacheServers)
 	}
 
 	fmt.Printf(`\n CacheServers: "%#v"`, s.cacheServers)
 }
 
-func (s *ServersSharding) reCachingOnUnregister(freeCacheServers []*CacheServer) {
+func (s *ServersSharding) reShardingOnUnregister(freeCacheServers []*CacheServer) {
+	s.reShardingMutex.Lock()
+	defer s.reShardingMutex.Unlock()
 	i := s.lastIndexServerAddNodes
 	lenServers := len(s.cacheServers)
 	var cacheServer *CacheServer
@@ -139,14 +189,17 @@ func (s *ServersSharding) initVirtualNodesDistribution(newCacheServers []*CacheS
 			break
 		}
 	}
+
 	for _, cacheServer := range newCacheServers {
 		fmt.Printf("\n Add Cache Server nodesLen:'%#v' '%d` \n", cacheServer, len(cacheServer.virtualNodes))
-		s.cacheServersMap[cacheServer.id] = cacheServer
+//		s.cacheServersMap[cacheServer.id] = cacheServer
 	}
-	s.cacheServers = newCacheServers
+//	s.cacheServers = newCacheServers
 }
 
-func (s *ServersSharding) reCachingOnRegister(newCacheServers []*CacheServer) {
+func (s *ServersSharding) reShardingOnRegister(newCacheServers []*CacheServer) {
+	s.reShardingMutex.Lock()
+	defer s.reShardingMutex.Unlock()
 	currentServerIndex := s.lastIndexServerFreeNodes
 	newServerIndex := 0
 	lenServers := len(s.cacheServers)
@@ -186,11 +239,12 @@ func (s *ServersSharding) reCachingOnRegister(newCacheServers []*CacheServer) {
 			break
 		}
 	}
+
 	for _, cacheServer = range newCacheServers {
 		fmt.Printf("\n Add Cache Server:'%#v' \n", cacheServer)
-		s.cacheServersMap[cacheServer.id] = cacheServer
+//		s.cacheServersMap[cacheServer.id] = cacheServer
 	}
-	s.cacheServers = append(s.cacheServers, newCacheServers...)
+//	s.cacheServers = append(s.cacheServers, newCacheServers...)
 }
 
 func (s *ServersSharding) GetCacheServer(key string) (*CacheServer, error) {
@@ -200,10 +254,10 @@ func (s *ServersSharding) GetCacheServer(key string) (*CacheServer, error) {
 	hashKey := s.hashFunction.CalculateHash(key)
 	fmt.Printf("\n Cache key: %d \n", hashKey)
 	fmt.Printf("\n CacheServers len: %d \n", len(s.virtualNodes))
-	s.mutexCacheServers.RLock()
+	s.reShardingMutex.RLock()
 	//fmt.Printf(`Cache Servers:"%#v"`, s.virtualNodes)
 	cacheServer := s.virtualNodes[hashKey]
-	s.mutexCacheServers.RUnlock()
+	s.reShardingMytex.RUnlock()
 	if cacheServer == nil {
 		return nil, fmt.Errorf(`Can't find cache server by index "%s"`, key)
 	}

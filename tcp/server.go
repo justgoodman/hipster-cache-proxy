@@ -111,7 +111,7 @@ func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) 
 
 	// Command get shard node
 	if clientMessage.command == getShardCommand {
-		return fmt.Sprintf(`"%s:%d"`, cacheServer.address, cacheServer.port) + endSymbol, nil
+		return fmt.Sprintf(`"%s:%d"`, cacheServer.wanAddress, cacheServer.port) + endSymbol, nil
 	}
 
 	if cacheServer.proxyClient == nil {
