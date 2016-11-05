@@ -22,6 +22,7 @@ type ServersSharding struct {
 	lastIndexServerAddNodes  int
 	lastIndexServerFreeNodes int
 	hashFunction             *common.ComplexStringHash
+	hasInitRegistration	 bool
 }
 
 func (s *ServersSharding) HealthCheck() {
@@ -92,13 +93,17 @@ func (s *ServersSharding) CacheServerChangedRegistration(services []*consulapi.C
 				}
 			}
 
-			cacheServer = NewCacheServer(service.ServiceID, service.Address, wanAddress, service.ServicePort)
+			cacheServer = NewCacheServer(service.ServiceID, service.Address, wanAddress, service.ServicePort, s.logger)
 			err := cacheServer.proxyClient.InitConnection()
 			// Check Health
+			result := cacheServer.healthCheck()
+			fmt.Printf("\n Result Bool HealCheck %t \n", result)
 			if err == nil && cacheServer.healthCheck() {
+				fmt.Printf("\n CacheServer have connection: %s \n",service.Address)
 				cacheServer.isAlive = true
 				registeredCacheServers = append(registeredCacheServers, cacheServer)
 			} else {
+				fmt.Printf("\n CacheServer does't have connection: %s \n",service.Address)
 				cacheServer.isAlive = false
 			}
 
@@ -211,13 +216,15 @@ func (s *ServersSharding) reShardingOnRegister(newCacheServers []*CacheServer) {
 	newServerIndex := 0
 	lenServers := len(s.cacheServers)
 	lenNewServers := len(newCacheServers)
-	if lenServers == 0 {
+	if lenNewServers == 0 {
+		return
+	}
+	if s.hasInitRegistration == false {
 		s.initVirtualNodesDistribution(newCacheServers)
+		s.hasInitRegistration = true
 		return
 	}
-	if lenServers == 0 {
-		return
-	}
+
 	// needed coount nodes for reCaching
 	countNodesPerServer := len(s.virtualNodes) / (lenServers + lenNewServers)
 	neededCountRecachingNodes := lenNewServers * countNodesPerServer
@@ -231,6 +238,8 @@ func (s *ServersSharding) reShardingOnRegister(newCacheServers []*CacheServer) {
 			newServerIndex = 0
 		}
 		currentServer := s.cacheServers[currentServerIndex]
+		fmt.Printf("\n Count of newCacheServer: %d", lenNewServers)
+		fmt.Printf("\n Count of Servers: %d", lenServers)
 		newServer := newCacheServers[newServerIndex]
 
 		nodeIndex := currentServer.getVirtualNode()

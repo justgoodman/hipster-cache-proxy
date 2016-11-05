@@ -1,7 +1,10 @@
 package tcp
 
 import (
-	"math/rand"
+	 "math/rand"
+	"fmt"
+
+	"hipster-cache-proxy/common"
 )
 
 type CacheServer struct {
@@ -16,7 +19,8 @@ type CacheServer struct {
 
 func (s *CacheServer) healthCheck() bool {
 	response, err := s.proxyClient.SendMessage("ping")
-	return err!= nil && response == "pong"
+	fmt.Printf("\n Response HealthCheck %s err: %#v  %t \n", response, err, response == (`"pong"` + "\n"))
+	return err == nil && response == `"pong"` + endSymbol
 }
 
 func (s *CacheServer) addVirtualNode(nodeIndex int) {
@@ -24,6 +28,7 @@ func (s *CacheServer) addVirtualNode(nodeIndex int) {
 }
 
 func (s *CacheServer) getVirtualNode() int {
+	fmt.Printf("\n LenVirtNodes :%d \n", len(s.virtualNodes))
 	randIndex := rand.Intn(len(s.virtualNodes))
 	nodeIndex := s.virtualNodes[randIndex]
 	// Delete link to virtual node
@@ -31,6 +36,12 @@ func (s *CacheServer) getVirtualNode() int {
 	return nodeIndex
 }
 
-func NewCacheServer(id, address, wanAddress string, port int) *CacheServer {
-	return &CacheServer{id: id, address: address, wanAddress: wanAddress, port: port}
+func NewCacheServer(id, address, wanAddress string, port int, logger common.ILogger) *CacheServer {
+	return &CacheServer{
+		id: id,
+		address: address,
+		wanAddress: wanAddress,
+		port: port,
+		proxyClient: NewProxyClient(address,port,logger),
+	}
 }

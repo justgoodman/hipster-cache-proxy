@@ -34,6 +34,7 @@ func (c *ProxyClient) InitConnection() error {
 		localTCPAddr, err := net.ResolveTCPAddr("tcp4", fmt.Sprintf(":%d", c.clientPort))
 	*/
 	var err error
+	fmt.Printf("Try to connect with: %s:%d", c.serverAddress, c.serverPort)
 	c.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
 	if err != nil {
 		return err
