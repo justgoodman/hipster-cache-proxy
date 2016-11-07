@@ -9,8 +9,10 @@ import (
 )
 
 const (
+	getShardingCommand = "GET_SHARDING"
 	getShardCommand = "GET_SHARD"
 	exitCommand     = "EXIT"
+	pingCommand	= "PING"
 	endSymbol       = "\n"
 )
 
@@ -77,8 +79,10 @@ func (s *ProxyServer) handleMessage(conn net.Conn) {
 			conn.Write([]byte(err.Error() + endSymbol))
 			return
 		}
-		if clientMessage.command == exitCommand {
+
+		if clientMessage.command == exitCommand	{
 			conn.Close()
+			return
 		}
 
 		response, err := s.getResponse(command, clientMessage)
@@ -103,24 +107,46 @@ func (s *ProxyServer) getClientMessage(command string) (*ClientMessage, error) {
 }
 
 func (s *ProxyServer) getResponse(command string, clientMessage *ClientMessage) (string, error) {
-	if len(clientMessage.params) == 0 {
-		return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
-	}
-	key := clientMessage.params[0]
-	cacheServer, _ := s.ServersSharding.GetCacheServer(key)
+	switch clientMessage.command {
+		case getShardingCommand:
+			if len(clientMessage.params) != 0 {
+				return "", fmt.Errorf(`Error: incorrect parametes count, it needs 0, was sended "%d"`, len(clientMessage.params))
+			}
+			return s.ServersSharding.GetShardingInfo()
+		// Command get shard node
+		case getShardCommand:
+			if len(clientMessage.params) != 1 {
+				return "", fmt.Errorf(`Error: incorrect parametes count, it needs 1, was sended "%d"`, len(clientMessage.params))
+			}
+			key := clientMessage.params[0]
+			cacheServer, err := s.ServersSharding.GetCacheServer(key)
+			if err != nil {
+				return "", err
+			}
+			return fmt.Sprintf(`"%s:%d"`, cacheServer.wanAddress, cacheServer.port) + endSymbol, nil
+		case pingCommand:
+			if len(clientMessage.params) != 0 {
+				return "", fmt.Errorf(`Error: incorrect parametes count, it needs 0, was sended "%d"`, len(clientMessage.params))
+			}
+			return `"pong"` + endSymbol, nil
+		default:
+			if len(clientMessage.params) == 0 {
+				return "", fmt.Errorf(`Error: incorrect parametes count, it needs minimum 1, was sended "%d"`, len(clientMessage.params))
+			}
+			key := clientMessage.params[0]
+			cacheServer, err := s.ServersSharding.GetCacheServer(key)
+			if err != nil {
+				return "", err
+			}
+			if cacheServer.proxyClient == nil {
+				cacheServer.proxyClient = NewProxyClient(cacheServer.address, cacheServer.port, s.logger)
+				// TODO: Repeat if connection false
+				err := cacheServer.proxyClient.InitConnection()
+				if err != nil {
+					s.logger.Errorf(`Error init connection with the CacheServer "%s"r`, err.Error())
+				}
+			}
+			return cacheServer.proxyClient.SendMessage(command)
 
-	// Command get shard node
-	if clientMessage.command == getShardCommand {
-		return fmt.Sprintf(`"%s:%d"`, cacheServer.wanAddress, cacheServer.port) + endSymbol, nil
 	}
-
-	if cacheServer.proxyClient == nil {
-		cacheServer.proxyClient = NewProxyClient(cacheServer.address, cacheServer.port, s.logger)
-		// TODO: Repeat if connection false
-		err := cacheServer.proxyClient.InitConnection()
-		if err != nil {
-			s.logger.Errorf(`Error init connection with the CacheServer "%s"r`, err.Error())
-		}
-	}
-	return cacheServer.proxyClient.SendMessage(command)
 }

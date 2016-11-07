@@ -37,6 +37,7 @@ func (a *Application) Init() error {
 	a.initRouting()
 	// If CacheServers registered in consul we can updateVirtualNodes
 	a.updateVirtualNodes()
+	go a.proxyServer.ServersSharding.HealthCheck()
 	return nil
 }
 

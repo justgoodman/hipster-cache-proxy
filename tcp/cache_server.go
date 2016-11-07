@@ -32,7 +32,7 @@ func (s *CacheServer) getVirtualNode() int {
 	randIndex := rand.Intn(len(s.virtualNodes))
 	nodeIndex := s.virtualNodes[randIndex]
 	// Delete link to virtual node
-	s.virtualNodes = append(s.virtualNodes[:randIndex][(randIndex + 1):])
+	s.virtualNodes = append(s.virtualNodes[:randIndex], s.virtualNodes[(randIndex + 1):]...)
 	return nodeIndex
 }
 

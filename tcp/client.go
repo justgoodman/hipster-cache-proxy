@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"hipster-cache-proxy/common"
 )
@@ -35,30 +36,39 @@ func (c *ProxyClient) InitConnection() error {
 	*/
 	var err error
 	fmt.Printf("Try to connect with: %s:%d", c.serverAddress, c.serverPort)
-	c.conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort))
+	c.conn, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", c.serverAddress, c.serverPort), time.Second)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func (c *ProxyClient) CloseConnection() error {
+	err := c.conn.Close()
+	c.conn = nil
+	return err
+}
+
 func (c *ProxyClient) SendMessage(message string) (string, error) {
 	c.sendMessageMutex.Lock()
 	defer c.sendMessageMutex.Unlock()
 	var buf [512]byte
+	if c.conn == nil {
+		return "", fmt.Errorf("Connection is not init")
+	}
 	_, err := c.conn.Write([]byte(message))
 	if err != nil {
 		c.logger.Errorf(`Error send message "%s", error "%s"`, message, err.Error())
-		c.conn.Close()
-		c.InitConnection()
+		c.CloseConnection()
+	//		c.InitConnection()
 		return "", err
 	}
 
 	n, err := c.conn.Read(buf[0:])
 	if err != nil {
 		c.logger.Errorf(`Read message error: "%s"`, err.Error())
-		c.conn.Close()
-		c.InitConnection()
+		c.CloseConnection()
+		//c.InitConnection()
 	}
 
 	fmt.Println(string(buf[0:n]))
